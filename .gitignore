@@ -1,0 +1,12 @@
+# Auth keys — NOOIT committen
+*.env
+bolttunnel.env
+*.key
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
