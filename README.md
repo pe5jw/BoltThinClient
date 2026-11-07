@@ -19,17 +19,20 @@ The node acts as a plug-and-play SDR client: plug in ethernet → everything sta
 ## Requirements
 
 - Dell Wyse 3040 (or any x86-64 PC), min. 2 GB RAM, 8 GB storage
-- **[DietPi](https://dietpi.com)** or Debian 12 Bookworm (minimal install)
+- **[DietPi](https://dietpi.com)** (Native PC — UEFI image) or Debian 12 Bookworm minimal
 - Ethernet connection (DHCP)
 - A [Tailscale](https://tailscale.com) account (free) and auth key
 
+> **DietPi image note:** The Wyse 3040 boots UEFI only — no Legacy/CSM mode.  
+> Download the **Native PC (UEFI)** image and flash with Rufus (GPT + UEFI non-CSM).
+
 ## Installation
 
-### 1. Create an auth key
+### 1. Create a Tailscale auth key
 
 Go to [login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys)  
 → **Generate auth key** → Reusable ✓, Ephemeral ✓  
-→ Copy the key (starts with `tskey-auth-...`)
+→ Copy the key — it starts with `tskey-auth-...`
 
 ### 2. Download and configure the script
 
@@ -41,17 +44,17 @@ nano install.sh   # Fill in TUNNEL_AUTH_KEY and TUNNEL_SERVER at the top
 ### 3. Run the installer
 
 ```bash
-sudo bash install.sh
+sudo ./install.sh
 ```
 
-### 4. Adjust config (optional)
+### 4. Adjust the BoltSDR URL (optional)
 
-After installation the BoltMultiwindow config is at:
+After installation the Bolt-multiwindow config is at:
 ```
-/opt/boltsdr/Bolt-multiwindow/config.json
+/opt/boldsdr/Bolt-multiwindow/config.json
 ```
 
-Update the `url` to the web address of your BoltSDR server (default: `http://127.0.0.1:6443` via the tunnel).
+Update the `url` to match your BoltSDR server address (default: `http://127.0.0.1:6443` via the tunnel).
 
 ### 5. Reboot
 
@@ -65,9 +68,9 @@ The node starts automatically in kiosk mode.
 
 | What | How |
 |------|-----|
-| SSH access | `ssh boltsdr@boltsdr-node.local` |
+| SSH access | `ssh boldsdr@boltsdr-node.local` |
 | BoltTunnel status | `http://boltsdr-node.local:8080` (browser on same network) |
-| Edit config | `nano /opt/boltsdr/Bolt-multiwindow/config.json` |
+| Edit config | `nano /opt/boldsdr/Bolt-multiwindow/config.json` |
 | Service status | `sudo systemctl status bolttunnel` |
 | Logs | `sudo journalctl -u bolttunnel -f` |
 
@@ -82,7 +85,7 @@ At the top of `install.sh`:
 | `TUNNEL_HOSTNAME` | `bolttunnel-client` | Name of this device in the tailnet |
 | `BOLTTUNNEL_VERSION` | `v1.1.0` | bolt-tunnel release version |
 | `NODE_HOSTNAME` | `boltsdr-node` | mDNS name (`.local`) |
-| `KIOSK_USER` | `boltsdr` | Linux user for the kiosk session |
+| `KIOSK_USER` | `boldsdr` | Linux user for the kiosk session |
 
 ## Architecture
 
@@ -93,6 +96,10 @@ At the top of `install.sh`:
   bolttunnel-client  ←── WireGuard/Tailscale ───→  bolttunnel-server
     localhost:6443                                   localhost:6443 (BoltSDR)
 ```
+
+## More details
+
+See [USAGE.md](USAGE.md) for a full step-by-step guide including troubleshooting.
 
 ## License
 
