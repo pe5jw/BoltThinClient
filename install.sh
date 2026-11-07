@@ -8,7 +8,7 @@
 #   - bolttunnel-client (Go binary, via GitHub release download)
 #   - Audio: Pipewire/ALSA, lage latency
 #   - MIDI: udev regels (@julusian/midi zit in Bolt-multiwindow)
-#   - Kiosk autostart via Openbox op TTY1
+#   - Kiosk autostart via LXDE autostart (.config/autostart/)
 #
 # Gebruik:
 #   curl -fsSL https://raw.githubusercontent.com/pe5jw/BoltThinClient/main/install.sh | sudo bash
@@ -235,44 +235,26 @@ udevadm control --reload-rules
 ok "Audio (Pipewire 48kHz/256q) + MIDI udev"
 
 # ── Stap 8: Kiosk autostart ──────────────────────────────────────────────────
-header "Stap 8/8 — Kiosk autostart"
+header "Stap 8/8 — Kiosk autostart (LXDE)"
 
-cat > "$KIOSK_HOME/.bash_profile" <<'EOF'
-if [[ -z "$DISPLAY" && "$(tty)" == "/dev/tty1" ]]; then
-    exec startx -- -nocursor 2>/tmp/xorg-kiosk.log
-fi
+# Gebruik LXDE autostart — dit werkt met DietPi dat LXDE installeert
+mkdir -p "$KIOSK_HOME/.config/autostart"
+
+cat > "$KIOSK_HOME/.config/autostart/bolt-multiwindow.desktop" <<EOF
+[Desktop Entry]
+Name=Bolt MultiWindow
+Comment=BoltSDR remote client
+Exec=bash ${INSTALL_DIR}/Bolt-multiwindow/start.sh
+Terminal=false
+Type=Application
+Categories=AudioVideo;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
 EOF
-
-cat > "$KIOSK_HOME/.xinitrc" <<'EOF'
-#!/bin/sh
-unclutter -idle 0 -root &
-exec openbox-session
-EOF
-chmod +x "$KIOSK_HOME/.xinitrc"
-
-mkdir -p "$KIOSK_HOME/.config/openbox"
-cat > "$KIOSK_HOME/.config/openbox/autostart" <<AUTOSTART
-# BoltSDR Node — Openbox autostart
-xset s off
-xset -dpms
-xset s noblank
-
-# Audio
-pipewire &
-sleep 0.5
-pipewire-pulse &
-wireplumber &
-sleep 1
-
-# Bolt-multiwindow kiosk
-# (bolttunnel draait als systemd service — al actief voor X start)
-cd ${INSTALL_DIR}/Bolt-multiwindow
-DISPLAY=:0 npm start -- --no-sandbox &
-AUTOSTART
 
 chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 chown -R "$KIOSK_USER:$KIOSK_USER" "$INSTALL_DIR"
-ok "Kiosk autostart geconfigureerd"
+ok "Kiosk autostart geconfigureerd (LXDE autostart)"
 
 # ── Klaar ─────────────────────────────────────────────────────────────────────
 header "Installatie voltooid!"
@@ -280,7 +262,7 @@ echo -e "${GREEN}"
 echo "  ✓ Bolt-multiwindow   →  $INSTALL_DIR/Bolt-multiwindow"
 echo "  ✓ BoltTunnel client  →  $TUNNEL_BIN"
 echo "  ✓ Audio (Pipewire 48kHz) + MIDI udev"
-echo "  ✓ Autologin TTY1 → Openbox → Bolt-multiwindow kiosk"
+echo "  ✓ LXDE autostart → Bolt-multiwindow kiosk"
 echo "  ✓ bolttunnel.service (start bij opstarten)"
 echo ""
 echo -e "${YELLOW}  Controleer na installatie:"
