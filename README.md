@@ -44,6 +44,7 @@ nano install.sh   # Fill in TUNNEL_AUTH_KEY and TUNNEL_SERVER at the top
 ### 3. Run the installer
 
 ```bash
+chmod +x install.sh
 sudo ./install.sh
 ```
 
