@@ -100,7 +100,9 @@ At the top of `install.sh`:
 
 ## More details
 
-See [USAGE.md](USAGE.md) for a full step-by-step guide including troubleshooting.
+See [DIETPI-INSTALL.md](DIETPI-INSTALL.md) for a full guide on installing DietPi with LXDE on the Wyse 3040.
+
+See [USAGE.md](USAGE.md) for the BoltThinClient installer guide including troubleshooting.
 
 ## License
 
