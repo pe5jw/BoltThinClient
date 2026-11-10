@@ -105,7 +105,9 @@ header "Stap 4/8 — Kiosk gebruiker"
 
 if ! id "$KIOSK_USER" &>/dev/null; then
     useradd -m -s /bin/bash -G audio,video,input,plugdev,dialout,render "$KIOSK_USER"
-    ok "Gebruiker '$KIOSK_USER' aangemaakt"
+    # Standaard wachtwoord instellen (zelfde als gebruikersnaam)
+    echo "${KIOSK_USER}:${KIOSK_USER}" | chpasswd
+    ok "Gebruiker '$KIOSK_USER' aangemaakt (wachtwoord: $KIOSK_USER)"
 else
     usermod -aG audio,video,input,plugdev,dialout,render "$KIOSK_USER" 2>/dev/null || true
     info "Gebruiker '$KIOSK_USER' bestaat al"
@@ -120,7 +122,13 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin ${KIOSK_USER} --noclear %I \$TERM
 EOF
 loginctl enable-linger "$KIOSK_USER"
-ok "Autologin TTY1 → $KIOSK_USER"
+
+# Passwordless sudo voor bolttunnel service beheer
+cat > /etc/sudoers.d/bolttunnel <<EOF
+${KIOSK_USER} ALL=(ALL) NOPASSWD: /bin/systemctl start bolttunnel, /bin/systemctl stop bolttunnel, /bin/systemctl restart bolttunnel
+EOF
+chmod 440 /etc/sudoers.d/bolttunnel
+ok "Autologin TTY1 → $KIOSK_USER (sudo bolttunnel zonder wachtwoord)"
 
 # ── Stap 5: Bolt-multiwindow ─────────────────────────────────────────────────
 header "Stap 5/8 — Bolt-multiwindow"
@@ -234,10 +242,10 @@ EOF
 udevadm control --reload-rules
 ok "Audio (Pipewire 48kHz/256q) + MIDI udev"
 
-# ── Stap 8: Kiosk autostart ──────────────────────────────────────────────────
-header "Stap 8/8 — Kiosk autostart (LXDE)"
+# ── Stap 8: Kiosk autostart + bureaublad snelkoppelingen ─────────────────────
+header "Stap 8/8 — Kiosk autostart (LXDE) + snelkoppelingen"
 
-# Gebruik LXDE autostart — dit werkt met DietPi dat LXDE installeert
+# LXDE autostart — start Bolt-multiwindow automatisch bij inloggen
 mkdir -p "$KIOSK_HOME/.config/autostart"
 
 cat > "$KIOSK_HOME/.config/autostart/bolt-multiwindow.desktop" <<EOF
@@ -252,9 +260,54 @@ StartupNotify=false
 X-GNOME-Autostart-enabled=true
 EOF
 
+# Bureaublad snelkoppelingen
+mkdir -p "$KIOSK_HOME/Desktop"
+
+# 1. Bolt-multiwindow starten
+cat > "$KIOSK_HOME/Desktop/bolt-multiwindow.desktop" <<EOF
+[Desktop Entry]
+Name=Bolt MultiWindow
+Comment=BoltSDR remote client
+Exec=bash ${INSTALL_DIR}/Bolt-multiwindow/start.sh
+Icon=${INSTALL_DIR}/Bolt-multiwindow/assets/icon.png
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Video;
+StartupNotify=true
+EOF
+
+# 2. BoltTunnel starten
+cat > "$KIOSK_HOME/Desktop/bolttunnel-start.desktop" <<EOF
+[Desktop Entry]
+Name=BoltTunnel — Start
+Comment=Start de VPN tunnel naar de BoltSDR server
+Exec=pkexec systemctl start bolttunnel
+Icon=network-vpn
+Terminal=false
+Type=Application
+Categories=Network;
+StartupNotify=false
+EOF
+
+# 3. BoltTunnel stoppen
+cat > "$KIOSK_HOME/Desktop/bolttunnel-stop.desktop" <<EOF
+[Desktop Entry]
+Name=BoltTunnel — Stop
+Comment=Stop de VPN tunnel
+Exec=pkexec systemctl stop bolttunnel
+Icon=network-offline
+Terminal=false
+Type=Application
+Categories=Network;
+StartupNotify=false
+EOF
+
+# Markeer .desktop bestanden als vertrouwd (uitvoerbaar) voor LXDE/PCManFM
+chmod +x "$KIOSK_HOME/Desktop/"*.desktop
+
 chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 chown -R "$KIOSK_USER:$KIOSK_USER" "$INSTALL_DIR"
-ok "Kiosk autostart geconfigureerd (LXDE autostart)"
+ok "Kiosk autostart + 3 bureaublad snelkoppelingen aangemaakt"
 
 # ── Klaar ─────────────────────────────────────────────────────────────────────
 header "Installatie voltooid!"
@@ -262,7 +315,8 @@ echo -e "${GREEN}"
 echo "  ✓ Bolt-multiwindow   →  $INSTALL_DIR/Bolt-multiwindow"
 echo "  ✓ BoltTunnel client  →  $TUNNEL_BIN"
 echo "  ✓ Audio (Pipewire 48kHz) + MIDI udev"
-echo "  ✓ LXDE autostart → Bolt-multiwindow kiosk"
+echo "  ✓ LXDE autostart → Bolt-multiwindow kiosk
+  ✓ Bureaublad snelkoppelingen: Bolt-multiwindow, BoltTunnel start/stop"
 echo "  ✓ bolttunnel.service (start bij opstarten)"
 echo ""
 echo -e "${YELLOW}  Controleer na installatie:"
