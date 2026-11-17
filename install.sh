@@ -78,6 +78,7 @@ PACKAGES=(
     alsa-seq-utils a2jmidid
     avahi-daemon libnss-mdns
     jq htop
+    python3-gi gir1.2-ayatanaappindicator3-0.1
 )
 
 apt-get install -y -qq "${PACKAGES[@]}" 2>/dev/null || {
@@ -302,6 +303,96 @@ Categories=Network;
 StartupNotify=false
 EOF
 
+# BoltTunnel tray indicator script
+cat > "$INSTALL_DIR/bolttunnel-tray.py" <<'PYEOF'
+#!/usr/bin/env python3
+"""
+BoltTunnel tray indicator — toont groen/rood icoon op basis van service status.
+"""
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("AyatanaAppIndicator3", "0.1")
+from gi.repository import Gtk, AyatanaAppIndicator3 as AppIndicator3, GLib
+
+ICON_ACTIVE   = "network-transmit-receive"
+ICON_INACTIVE = "network-offline"
+CHECK_INTERVAL_SECONDS = 5
+
+def is_bolttunnel_active():
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "bolttunnel"],
+            capture_output=True, text=True, timeout=3
+        )
+        return result.stdout.strip() == "active"
+    except Exception:
+        return False
+
+def build_menu(indicator):
+    menu = Gtk.Menu()
+    item_status = Gtk.MenuItem(label="Checking...")
+    item_status.set_sensitive(False)
+    menu.append(item_status)
+    menu.append(Gtk.SeparatorMenuItem())
+    item_start = Gtk.MenuItem(label="Start BoltTunnel")
+    item_start.connect("activate", lambda _: run_service("start", indicator, item_status))
+    menu.append(item_start)
+    item_stop = Gtk.MenuItem(label="Stop BoltTunnel")
+    item_stop.connect("activate", lambda _: run_service("stop", indicator, item_status))
+    menu.append(item_stop)
+    menu.append(Gtk.SeparatorMenuItem())
+    item_quit = Gtk.MenuItem(label="Quit indicator")
+    item_quit.connect("activate", lambda _: Gtk.main_quit())
+    menu.append(item_quit)
+    menu.show_all()
+    indicator._status_item = item_status
+    return menu
+
+def run_service(action, indicator, status_item):
+    subprocess.run(["sudo", "systemctl", action, "bolttunnel"])
+    update_indicator(indicator)
+
+def update_indicator(indicator):
+    active = is_bolttunnel_active()
+    indicator.set_icon_full(
+        ICON_ACTIVE if active else ICON_INACTIVE,
+        "BoltTunnel actief" if active else "BoltTunnel gestopt"
+    )
+    if hasattr(indicator, "_status_item"):
+        indicator._status_item.set_label(
+            "BoltTunnel: actief" if active else "BoltTunnel: gestopt"
+        )
+    return True
+
+def main():
+    indicator = AppIndicator3.Indicator.new(
+        "bolttunnel-tray",
+        ICON_INACTIVE,
+        AppIndicator3.IndicatorCategory.SYSTEM_SERVICES,
+    )
+    indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+    indicator.set_menu(build_menu(indicator))
+    update_indicator(indicator)
+    GLib.timeout_add_seconds(CHECK_INTERVAL_SECONDS, update_indicator, indicator)
+    Gtk.main()
+
+if __name__ == "__main__":
+    main()
+PYEOF
+chmod +x "$INSTALL_DIR/bolttunnel-tray.py"
+
+# LXDE autostart — tray indicator
+cat > "$KIOSK_HOME/.config/autostart/bolttunnel-tray.desktop" <<EOF
+[Desktop Entry]
+Name=BoltTunnel Tray
+Comment=Toont status van BoltTunnel in systeemvak
+Exec=python3 ${INSTALL_DIR}/bolttunnel-tray.py
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=true
+EOF
+
 # Markeer .desktop bestanden als vertrouwd (uitvoerbaar) voor LXDE/PCManFM
 chmod +x "$KIOSK_HOME/Desktop/"*.desktop
 
@@ -315,7 +406,7 @@ echo -e "${GREEN}"
 echo "  ✓ Bolt-multiwindow   →  $INSTALL_DIR/Bolt-multiwindow"
 echo "  ✓ BoltTunnel client  →  $TUNNEL_BIN"
 echo "  ✓ Audio (Pipewire 48kHz) + MIDI udev"
-echo "  ✓ LXDE autostart → Bolt-multiwindow kiosk
+echo "  ✓ LXDE autostart → Bolt-multiwindow kiosk + BoltTunnel tray indicator
   ✓ Bureaublad snelkoppelingen: Bolt-multiwindow, BoltTunnel start/stop"
 echo "  ✓ bolttunnel.service (start bij opstarten)"
 echo ""
