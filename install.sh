@@ -382,6 +382,13 @@ if __name__ == "__main__":
 PYEOF
 chmod +x "$INSTALL_DIR/bolttunnel-tray.py"
 
+# Iconen downloaden vanuit GitHub repo
+RAW_URL="https://raw.githubusercontent.com/pe5jw/BoltThinClient/main"
+for ICON in icon_active.png icon_connecting.png icon_inactive.png; do
+    curl -fsSL "${RAW_URL}/${ICON}" -o "${INSTALL_DIR}/${ICON}"
+done
+ok "Tray iconen gedownload"
+
 # LXDE autostart — tray indicator
 cat > "$KIOSK_HOME/.config/autostart/bolttunnel-tray.desktop" <<EOF
 [Desktop Entry]
